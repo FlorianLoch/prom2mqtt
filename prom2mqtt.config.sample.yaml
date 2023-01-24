@@ -1,0 +1,10 @@
+mqtt:
+  host: "localhost:1883"
+prometheus:
+  host: "localhost:8080"
+  path: "/metrics"
+topics:
+  sample-topic:
+    name: "my_metric"
+    labels:
+      instance: "raspi"

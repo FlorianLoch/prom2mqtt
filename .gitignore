@@ -1,0 +1,6 @@
+.idea/
+.vscode/
+
+bin/
+
+prom2mqtt.config.yaml
