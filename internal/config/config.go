@@ -5,8 +5,8 @@ import (
 )
 
 type Config struct {
-	MqttConfig MqttConfig    `embed:"" prefix:"mqtt-"`
-	PromConfig PromConfig    `embed:"" prefix:"prometheus-"`
+	Mqtt       MqttConfig    `embed:"" prefix:"mqtt-"`
+	Prometheus PromConfig    `embed:"" prefix:"prometheus-"`
 	Interval   time.Duration `help:"Scrapping interval" default:"1m"`
 	Topics     Topic         `kong:"-"`
 }
@@ -18,8 +18,7 @@ type MqttConfig struct {
 }
 
 type PromConfig struct {
-	Host string `help:"Host running the Prometheus collector that shall be scrapped" required:""`
-	Path string `help:"Path to use when requesting metrics from host" default:"/"`
+	URL string `help:"URL from where to scrape metrics" required:""`
 	// TODO: Support Basic Auth
 }
 
