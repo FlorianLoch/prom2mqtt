@@ -9,10 +9,11 @@ type Config struct {
 	Prometheus PromConfig    `embed:"" prefix:"prometheus-"`
 	Interval   time.Duration `help:"Scrapping interval" default:"1m"`
 	Topics     Topic         `kong:"-"`
+	Verbose    bool          `name:"verbose" short:"v"`
 }
 
 type MqttConfig struct {
-	Host     string `help:"MQTT broker to send messages to" required:""`
+	URL      string `help:"MQTT broker to send messages to" required:""`
 	Username string `help:"Username to authenticate with"`
 	Password string `help:"Password to authenticate with"`
 }

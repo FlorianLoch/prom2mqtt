@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -24,6 +25,8 @@ const envKeyConfig = "PROM2MQTT_CONFIG_PATH"
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	cli := &struct {
 		Config config.Config `embed:""`
@@ -61,12 +64,19 @@ func main() {
 
 	cfg := &cli.Config
 
-	log.Debug().Interface("cfg", cfg).Msg("Loaded config")
+	if cfg.Verbose {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
 
-	mqttClient := mqtt.New(cfg.Mqtt)
+	log.Debug().Interface("cfg", cfg).Msg("Loaded config")
 
 	ctx, cancelFn := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancelFn()
+
+	mqttClient, err := mqtt.New(ctx, cfg.Mqtt)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to init MQTT client")
+	}
 
 	loop(ctx, mqttClient, cfg)
 }
@@ -76,45 +86,61 @@ func loop(ctx context.Context, mqttClient *mqtt.Client, cfg *config.Config) {
 
 	ticker := eagerTicker(ctx, cfg.Interval)
 
-	for range ticker {
-		if ctx.Err() != nil {
-			return
-		}
+	for {
+		select {
+		case <-ticker:
+			metrics, err := scraper.ScrapeURL(ctx)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to scrape metrics")
 
-		metrics, err := scraper.ScrapeURL(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to scrape metrics")
+				continue
+			}
 
-			continue
-		}
+			for topic, seriesSpecifiers := range cfg.Topics {
+				for _, seriesSpecifier := range seriesSpecifiers {
+					values, err := metrics.ExtractValues(seriesSpecifier)
+					if err != nil {
+						log.Fatal().Err(err).Msg("Failed to extract series values")
+					}
 
-		for topic, seriesSpecifiers := range cfg.Topics {
-			for _, seriesSpecifier := range seriesSpecifiers {
-				values, err := metrics.ExtractValues(seriesSpecifier)
-				if err != nil {
-					log.Fatal().Err(err).Msg("Failed to extract series values")
-				}
-
-				log.Debug().
-					Str("topic", topic).
-					Interface("specifier", seriesSpecifiers).
-					Interface("values", values).
-					Msg("Extracted series")
-
-				if err := mqttClient.PublishTopic(topic, values); err != nil {
-					log.Error().
+					log.Debug().
 						Str("topic", topic).
 						Interface("specifier", seriesSpecifiers).
-						Err(err).
-						Msg("Failed to publish series values via MQTT")
+						Interface("values", values).
+						Msg("Extracted series")
+
+					for i := range values {
+						value := strconv.FormatFloat(values[i], 'G', -1, 64)
+
+						go func() {
+							log.Debug().Msg("Publishing message...")
+
+							publishCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
+							defer cancelFn()
+
+							if err := mqttClient.Publish(publishCtx, topic, value); err != nil {
+								log.Error().
+									Str("topic", topic).
+									Interface("specifier", seriesSpecifiers).
+									Err(err).
+									Msg("Failed to publish series values via MQTT")
+
+								return
+							}
+
+							log.Debug().Msg("Successfully published message")
+						}()
+					}
 				}
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
 
 func eagerTicker(ctx context.Context, interval time.Duration) <-chan time.Time {
-	ch := make(chan time.Time)
+	ch := make(chan time.Time, 1)
 	ticker := time.NewTicker(interval)
 
 	go func() {
@@ -129,6 +155,8 @@ func eagerTicker(ctx context.Context, interval time.Duration) <-chan time.Time {
 			}
 		}
 	}()
+
+	ch <- time.Now()
 
 	return ch
 }
