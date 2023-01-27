@@ -46,5 +46,5 @@ $(bin): $(go_files) | $(bin_dir)
 
 
 $(image_built): $(go_files) | $(bin_dir)
-	docker buildx build --platform linux/arm/v7 --tag $(image_tag) .
+	docker build --platform linux/arm/v7 --tag $(image_tag) .
 	touch $(image_built)
