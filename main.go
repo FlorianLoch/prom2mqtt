@@ -36,7 +36,7 @@ func main() {
 
 	kong.Name("prom2mqtt")
 	// TODO: Update!
-	kong.Description("Small daemon reading temperature and humidity from a dnt RoomLogg Pro base station via USB and pushing it into an InfluxDB.")
+	kong.Description("Small daemon scraping a service exporting Prometheus metrics and sending these to an MQTT server.")
 
 	configPath := os.Getenv(envKeyConfig)
 
@@ -110,15 +110,15 @@ func loop(ctx context.Context, mqttClient *mqtt.Client, cfg *config.Config) {
 						Msg("Extracted series")
 
 					for i := range values {
-						value := strconv.FormatFloat(values[i], 'G', -1, 64)
+						go func(topic string, value float64) {
+							stringifiedValue := strconv.FormatFloat(value, 'G', -1, 64)
 
-						go func() {
 							log.Debug().Msg("Publishing message...")
 
 							publishCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
 							defer cancelFn()
 
-							if err := mqttClient.Publish(publishCtx, topic, value); err != nil {
+							if err := mqttClient.Publish(publishCtx, topic, stringifiedValue); err != nil {
 								log.Error().
 									Str("topic", topic).
 									Interface("specifier", seriesSpecifiers).
@@ -129,7 +129,7 @@ func loop(ctx context.Context, mqttClient *mqtt.Client, cfg *config.Config) {
 							}
 
 							log.Debug().Msg("Successfully published message")
-						}()
+						}(topic, values[i])
 					}
 				}
 			}
