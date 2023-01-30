@@ -1,5 +1,7 @@
 mqtt:
   url: "mqtt://localhost:1883"
+  username: "me"
+  password: "my_password"
 prometheus:
   url: "http://localhost:8080/metrics"
 topics:

@@ -1,6 +1,6 @@
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
-WORKDIR /
-COPY ./bin/prom2mqtt-arm32v7 ./
+WORKDIR /app/
+COPY ./bin/prom2mqtt-arm32v7 ./prom2mqtt
 CMD ["./prom2mqtt"]
