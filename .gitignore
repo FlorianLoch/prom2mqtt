@@ -2,5 +2,8 @@
 .vscode/
 
 bin/
+.make/
+
+prom2mqtt
 
 prom2mqtt.config.yaml
