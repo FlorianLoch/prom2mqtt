@@ -4,21 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"os/signal"
-	"strconv"
-	"time"
-
 	"github.com/alecthomas/kong"
 	kongyaml "github.com/alecthomas/kong-yaml"
+	"github.com/florianloch/prom2mqtt/internal"
+	"github.com/florianloch/prom2mqtt/internal/scrape"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
+	"io"
+	"os"
+	"os/signal"
 
 	"github.com/florianloch/prom2mqtt/internal/config"
 	"github.com/florianloch/prom2mqtt/internal/mqtt"
-	"github.com/florianloch/prom2mqtt/internal/scrape"
 )
 
 const envKeyConfig = "PROM2MQTT_CONFIG_PATH"
@@ -78,85 +76,5 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to init MQTT client")
 	}
 
-	loop(ctx, mqttClient, cfg)
-}
-
-func loop(ctx context.Context, mqttClient *mqtt.Client, cfg *config.Config) {
-	scraper := scrape.New(cfg.Prometheus.URL)
-
-	ticker := eagerTicker(ctx, cfg.Interval)
-
-	for {
-		select {
-		case <-ticker:
-			metrics, err := scraper.ScrapeURL(ctx)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to scrape metrics")
-
-				continue
-			}
-
-			for topic, seriesSpecifiers := range cfg.Topics {
-				for _, seriesSpecifier := range seriesSpecifiers {
-					values, err := metrics.ExtractValues(seriesSpecifier)
-					if err != nil {
-						log.Fatal().Err(err).Msg("Failed to extract series values")
-					}
-
-					log.Debug().
-						Str("topic", topic).
-						Interface("specifier", seriesSpecifiers).
-						Interface("values", values).
-						Msg("Extracted series")
-
-					for i := range values {
-						go func(topic string, value float64) {
-							stringifiedValue := strconv.FormatFloat(value, 'G', -1, 64)
-
-							log.Debug().Msg("Publishing message...")
-
-							publishCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
-							defer cancelFn()
-
-							if err := mqttClient.Publish(publishCtx, topic, stringifiedValue); err != nil {
-								log.Error().
-									Str("topic", topic).
-									Interface("specifier", seriesSpecifiers).
-									Err(err).
-									Msg("Failed to publish series values via MQTT")
-
-								return
-							}
-
-							log.Debug().Msg("Successfully published message")
-						}(topic, values[i])
-					}
-				}
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func eagerTicker(ctx context.Context, interval time.Duration) <-chan time.Time {
-	ch := make(chan time.Time, 1)
-	ticker := time.NewTicker(interval)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-
-				return
-			case t := <-ticker.C:
-				ch <- t
-			}
-		}
-	}()
-
-	ch <- time.Now()
-
-	return ch
+	internal.Loop(ctx, scrape.New(), mqttClient, cfg)
 }

@@ -5,11 +5,10 @@ import (
 )
 
 type Config struct {
-	Mqtt       MqttConfig    `embed:"" prefix:"mqtt-"`
-	Prometheus PromConfig    `embed:"" prefix:"prometheus-"`
-	Interval   time.Duration `help:"Scrapping interval" default:"1m"`
-	Topics     Topic         `kong:"-"`
-	Verbose    bool          `name:"verbose" short:"v"`
+	Mqtt     MqttConfig    `embed:"" prefix:"mqtt-"`
+	Interval time.Duration `help:"Scrapping interval" default:"1m"`
+	Groups   []Group       `kong:"-"`
+	Verbose  bool          `name:"verbose" short:"v"`
 }
 
 type MqttConfig struct {
@@ -18,12 +17,15 @@ type MqttConfig struct {
 	Password string `help:"Password to authenticate with"`
 }
 
-type PromConfig struct {
-	URL string `help:"URL from where to scrape metrics" required:""`
-	// TODO: Support Basic Auth
+type Group struct {
+	Prometheus PromConfig
+	Topics     map[string]PromSeriesSpecifier // topic -> series specifiers
 }
 
-type Topic map[string][]PromSeriesSpecifier
+type PromConfig struct {
+	URL string
+	// TODO: Support Basic Auth
+}
 
 type PromSeriesSpecifier struct {
 	Name   string

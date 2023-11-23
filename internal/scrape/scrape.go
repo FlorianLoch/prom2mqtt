@@ -13,35 +13,32 @@ import (
 	"github.com/florianloch/prom2mqtt/internal/config"
 )
 
-type Scraper struct {
+type PromScraper struct {
 	httpClient *http.Client
-	targetURL  string
 }
 
-func New(targetURL string) *Scraper {
-	return &Scraper{
+func New() *PromScraper {
+	return &PromScraper{
 		httpClient: &http.Client{},
-		targetURL:  targetURL,
 	}
 }
 
-func (s *Scraper) ScrapeURL(ctx context.Context) (*Metrics, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.targetURL, nil)
+func (s *PromScraper) ScrapeURL(ctx context.Context, targetURL string) (*Metrics, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request to %q: %w", s.targetURL, err)
+		return nil, fmt.Errorf("creating request to %q: %w", targetURL, err)
 	}
 
 	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("performing request to %q: %w", s.targetURL, err)
-	}
-
 	defer resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("performing request to %q: %w", targetURL, err)
+	}
 
 	return s.Scrape(resp.Body)
 }
 
-func (s *Scraper) Scrape(r io.Reader) (*Metrics, error) {
+func (s *PromScraper) Scrape(r io.Reader) (*Metrics, error) {
 	var parser expfmt.TextParser
 
 	families, err := parser.TextToMetricFamilies(r)

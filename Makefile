@@ -48,6 +48,7 @@ $(image_pushed): $(image_built)
 
 
 $(bin): $(go_files) | $(bin_dir)
+	go generate ./...
 	CGO_ENABLED=1 go build -o $(bin)
 
 

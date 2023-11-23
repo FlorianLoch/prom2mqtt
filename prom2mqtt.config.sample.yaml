@@ -2,10 +2,11 @@ mqtt:
   url: "mqtt://localhost:1883"
   username: "me"
   password: "my_password"
-prometheus:
-  url: "http://localhost:8080/metrics"
-topics:
-  sample-topic:
-    name: "my_metric"
-    labels:
-      instance: "raspi"
+groups:
+  prometheus:
+    url: "http://localhost:8080/metrics"
+  topics:
+    sample-topic:
+      name: "my_metric"
+      labels:
+        instance: "raspi"
