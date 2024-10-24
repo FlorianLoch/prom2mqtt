@@ -1,4 +1,4 @@
-FROM golang:1.21.4 AS builder
+FROM golang:1.23.2 AS builder
 
 WORKDIR /src/
 # Copy dependency management related files first and download required modules before copying changed code into the
