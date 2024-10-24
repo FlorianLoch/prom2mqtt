@@ -43,7 +43,7 @@ $(make_dir):
 
 
 $(image_pushed): $(image_built)
-	podman save $(image_tag) | pv | ssh raspi docker load
+	podman save $(image_tag) | pv | ssh pi5 docker load
 	touch $(image_pushed)
 
 
@@ -52,6 +52,6 @@ $(bin): $(go_files) | $(bin_dir)
 	CGO_ENABLED=1 go build -o $(bin)
 
 
-$(image_built): $(go_files) Dockerfile $(raspi_bin) $(make_dir)
+$(image_built): $(go_files) Dockerfile | $(make_dir)
 	podman build --platform linux/arm64 --tag $(image_tag) .
 	touch $(image_built)
