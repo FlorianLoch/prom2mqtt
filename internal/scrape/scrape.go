@@ -30,10 +30,10 @@ func (s *PromScraper) ScrapeURL(ctx context.Context, targetURL string) (*Metrics
 	}
 
 	resp, err := s.httpClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("performing request to %q: %w", targetURL, err)
 	}
+	defer resp.Body.Close()
 
 	return s.Scrape(resp.Body)
 }
